@@ -11,12 +11,12 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Configuration
 path = os.path.join(os.getcwd(), 'image_folder')
 attendance_dir = os.path.join(os.getcwd(), 'attendance')
-url = 'http://192.168.2.169/cam-hi.jpg'
+url = 'http://192.168.2.200/cam-hi.jpg'
 
 # Google Sheets configuration
-GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"  # Replace with your Google Sheet ID (e.g., 1a2b3c4d5e6f7g8h9i0j)
-CREDENTIALS_FILE = "credentials.json"  # JSON key file for service account (attendance-service-account@evident-flame-434803-f0.iam.gserviceaccount.com)
-SHEET_NAME = "Sheet1"  # Name of the sheet to append to (default: Sheet1)
+GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"  # Replace with your Google Sheet ID
+CREDENTIALS_FILE = "credentials.json"  # JSON key file for service account
+SHEET_NAME = "Sheet1"  # Name of the sheet to append to
 
 # Timezone configuration (+0545, Nepal Time)
 TZ = timezone(timedelta(hours=5, minutes=45))
@@ -103,34 +103,37 @@ while True:
         if img is None:
             print("Failed to decode image")
             continue
+
+        # Flip the image horizontally (mirror effect)
+        img = cv2.flip(img, 1)
+
+        # Process image for face recognition
+        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+        imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
+
+        facesCurFrame = face_recognition.face_locations(imgS)
+        encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
+
+        for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
+            matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
+            faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
+            matchIndex = np.argmin(faceDis)
+
+            if matches[matchIndex]:
+                name = classNames[matchIndex].upper()
+                y1, x2, y2, x1 = faceLoc
+                y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 255, 0), cv2.FILLED)
+                cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
+                markAttendance(name, sheet)
+
+        cv2.imshow('Webcam', img)
+        key = cv2.waitKey(5)
+        if key == ord('q'):
+            break
     except Exception as e:
         print(f"Error fetching image: {e}")
         continue
-
-    # Process image for face recognition
-    imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
-    imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-
-    facesCurFrame = face_recognition.face_locations(imgS)
-    encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
-
-    for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
-        matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
-        faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
-        matchIndex = np.argmin(faceDis)
-
-        if matches[matchIndex]:
-            name = classNames[matchIndex].upper()
-            y1, x2, y2, x1 = faceLoc
-            y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 255, 0), cv2.FILLED)
-            cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
-            markAttendance(name, sheet)
-
-    cv2.imshow('Webcam', img)
-    key = cv2.waitKey(5)
-    if key == ord('q'):
-        break
 
 cv2.destroyAllWindows()
