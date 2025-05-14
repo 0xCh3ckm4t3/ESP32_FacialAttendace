@@ -11,7 +11,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Configuration
 path = os.path.join(os.getcwd(), 'image_folder')
 attendance_dir = os.path.join(os.getcwd(), 'attendance')
-url = 'http://192.168.101.8/cam-hi.jpg'
+url = 'http://192.168.2.169/cam-hi.jpg'
 
 # Google Sheets configuration
 GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"  # Replace with your Google Sheet ID (e.g., 1a2b3c4d5e6f7g8h9i0j)
