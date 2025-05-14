@@ -7,16 +7,19 @@ from datetime import datetime, timezone, timedelta
 import face_recognition
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import requests
+import time
 
 # Configuration
 path = os.path.join(os.getcwd(), 'image_folder')
 attendance_dir = os.path.join(os.getcwd(), 'attendance')
 url = 'http://192.168.2.200/cam-hi.jpg'
+flash_url = 'http://192.168.2.200/flash'  # New endpoint for flash control
 
 # Google Sheets configuration
-GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"  # Replace with your Google Sheet ID
-CREDENTIALS_FILE = "credentials.json"  # JSON key file for service account
-SHEET_NAME = "Sheet1"  # Name of the sheet to append to
+GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"
+CREDENTIALS_FILE = "credentials.json"
+SHEET_NAME = "Sheet1"
 
 # Timezone configuration (+0545, Nepal Time)
 TZ = timezone(timedelta(hours=5, minutes=45))
@@ -54,6 +57,17 @@ def append_to_google_sheet(sheet, name, time_str):
     except Exception as e:
         print(f"Error appending to Google Sheet: {e}")
 
+# Function to trigger flash blink
+def trigger_flash():
+    try:
+        response = requests.get(flash_url, timeout=2)
+        if response.status_code == 200:
+            print("Flash triggered")
+        else:
+            print(f"Failed to trigger flash: {response.status_code}")
+    except Exception as e:
+        print(f"Error triggering flash: {e}")
+
 # Load reference images
 images = []
 classNames = []
@@ -77,7 +91,7 @@ def findEncodings(images):
             print(f"No face detected in {img}")
     return encodeList
 
-def markAttendance(name, sheet):
+def markAttendance(name, sheet, last_flash_time):
     with open(attendance_file, 'r+') as f:
         myDataList = f.readlines()
         nameList = [line.split(',')[0] for line in myDataList]
@@ -86,6 +100,12 @@ def markAttendance(name, sheet):
             dtString = now.strftime('%H:%M:%S')
             f.writelines(f'\n{name},{dtString}')
             append_to_google_sheet(sheet, name, dtString)
+            # Trigger flash only if enough time has passed (debouncing)
+            current_time = time.time()
+            if current_time - last_flash_time >= 1:  # 1-second debounce
+                trigger_flash()
+                return current_time
+    return last_flash_time
 
 # Encode known faces
 encodeListKnown = findEncodings(images)
@@ -93,6 +113,9 @@ print('Encoding Complete')
 
 # Authenticate Google Sheets
 sheet = authenticate_google_sheets()
+
+# Initialize last flash time for debouncing
+last_flash_time = 0
 
 while True:
     try:
@@ -126,7 +149,7 @@ while True:
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 255, 0), cv2.FILLED)
                 cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
-                markAttendance(name, sheet)
+                last_flash_time = markAttendance(name, sheet, last_flash_time)
 
         cv2.imshow('Webcam', img)
         key = cv2.waitKey(5)
