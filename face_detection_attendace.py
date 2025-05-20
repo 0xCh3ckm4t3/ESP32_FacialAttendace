@@ -17,7 +17,7 @@ url = 'http://172.20.10.7/cam-hi.jpg'
 flash_url = 'http://172.20.10.7/flash'  # New endpoint for flash control
 
 # Google Sheets configuration
-GOOGLE_SHEET_ID = "1duSqoo9TsavNX3v5pSGycLNwvzQqZa9UyHnW6n4IXwE"
+GOOGLE_SHEET_ID = ""
 CREDENTIALS_FILE = "credentials.json"
 SHEET_NAME = "Sheet1"
 
